@@ -11,71 +11,12 @@
 #include <fstream>
 #include <stdlib.h>
 
+#include "box.hpp"
+#include "quad.hpp"
+
 #define BUFFER_OFFSET(i) ((void*)(i))
 
 using namespace glm;
-
-// 6 faces * 2 triangles per face * 3 vertices per triangle
-const unsigned numVertices = 36;
-// x, y, z coordinates, s, t texture coordinates
-
-const unsigned numVertexComponents = 5;
-// Texture resolution: 738px x 100px x 406px
-const GLfloat dimX = 7.375;
-const GLfloat dimY = 1.0;
-const GLfloat dimZ = 4.0625;
-
-GLfloat objX = 738.f;
-GLfloat objY = 100.f;
-GLfloat objZ = 406.f;
-
-unsigned texW = 2288;
-unsigned texH = 912;
-
-const GLfloat verts[numVertices][numVertexComponents] = {
-    // Bottom
-    { 0.0, 0.0, 0.0, objZ/texW, (objZ+objY)/texH },   // 0
-    { 0.0, 0.0, dimZ,  objZ/texW, (2*objZ + objY)/texH },  // 1
-    { dimX, 0.0, 0.0, (objZ+objX)/texW, (objZ+objY)/texH },   // 3
-    { 0.0, 0.0, dimZ,  objZ/texW, (2*objZ + objY)/texH },  // 1
-    { dimX, 0.0, dimZ, (objZ+objX)/texW, (2*objZ + objY)/texH },  // 2
-    { dimX, 0.0, 0.0, (objZ+objX)/texW, (objZ+objY)/texH },   // 3
-    // Front
-    { 0.0, 0.0, 0.0,  objZ/texW, objZ/texH },   // 0
-    { 0.0, dimY, 0.0,  objZ/texW, (objZ+objY)/texH },  // 4
-    { dimX, 0.0, 0.0, (objZ+objX)/texW, objZ/texH },   // 3
-    { 0.0, dimY, 0.0,  objZ/texW, (objZ+objY)/texH },  // 4
-    { dimX, dimY, 0.0, (objZ+objX)/texW, (objZ+objY)/texH },  // 7
-    { dimX, 0.0, 0.0, (objZ+objX)/texW, objZ/texH },   // 3
-    // Left
-    { 0.0, 0.0, dimZ,  0.0, (objZ+objY)/texH },  // 1
-    { 0.0, dimY, dimZ,  objZ/texW, (objZ+objY)/texH }, // 5
-    { 0.0, 0.0, 0.0,  0.0, objZ/texH },   // 0
-    { 0.0, dimY, dimZ,  objZ/texW, (objZ+objY)/texH }, // 5
-    { 0.0, dimY, 0.0,  objZ/texW, objZ/texH },  // 4
-    { 0.0, 0.0, 0.0,  0.0, objZ/texH },   // 0
-    // Back
-    { dimX, dimY, dimZ, 1.0, (objZ+objY)/texH }, // 6
-    { 0.0, 0.0, dimZ,  (2*objZ + objX)/texW, objZ/texH },  // 1
-    { dimX, 0.0, dimZ, 1.0, objZ/texH },  // 2
-    { 0.0, dimY, dimZ,  (2*objZ + objX)/texW, (objZ+objY)/texH }, // 5
-    { 0.0, 0.0, dimZ,  (2*objZ + objX)/texW, objZ/texH },  // 1
-    { dimX, dimY, dimZ, 1.0, (objZ+objY)/texH }, // 6
-    // Right
-    { dimX, 0.0, 0.0, (objZ+objX)/texW, objZ/texH },   // 3
-    { dimX, dimY, 0.0, (2*objZ + objX)/texW, objZ/texH },  // 7
-    { dimX, 0.0, dimZ, (objZ+objX)/texW, (objZ+objY)/texH },  // 2
-    { dimX, dimY, dimZ, (2*objZ + objX)/texW, (objZ+objY)/texH }, // 6
-    { dimX, 0.0, dimZ, (objZ+objX)/texW, (objZ+objY)/texH },  // 2
-    { dimX, dimY, 0.0, (2*objZ + objX)/texW, objZ/texH },  // 7
-    // Top
-    { 0.0, dimY, dimZ,  objZ/texW, objZ/texH }, // 5
-    { dimX, dimY, dimZ, (objZ+objX)/texW, objZ/texH }, // 6
-    { dimX, dimY, 0.0, (objZ+objX)/texW, 0.0 },  // 7
-    { 0.0, dimY, 0.0,  objZ/texW, 0.0 },  // 4
-    { 0.0, dimY, dimZ,  objZ/texW, objZ/texH }, // 5
-    { dimX, dimY, 0.0, (objZ+objX)/texW, 0.0 }   // 7
-};
 
 static void error_callback(int error, const char* description)
 {
@@ -168,38 +109,70 @@ int main(void)
 
     glUseProgram(ProgramObject);
 
-    // Set up vertex buffer
-
-    GLuint vBuffer;
-    GLuint elementBuffer;
-
-    glGenBuffers(1, &vBuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, vBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(verts), verts, GL_STATIC_DRAW);
-
-    GLint vPosition = glGetAttribLocation(ProgramObject, "vPosition");
-
     // Set up texture
+    // Texture resolution: 738px x 100px x 406px
+    GLfloat dimX = 7.375;
+    GLfloat dimY = 1.0;
+    GLfloat dimZ = 4.0625;
+    // Size of object in terms of pixels in the texture image
+    GLfloat objX = 738.f;
+    GLfloat objY = 100.f;
+    GLfloat objZ = 406.f;
+    // Size of the texture image in pixels
+    unsigned texW = 2288;
+    unsigned texH = 912;
+
+    TextureDesc texDesc = {texW, texH, objX, objY, objZ};
+
     GLuint tex;
     // Load image to texture with SOIL
-    tex = SOIL_load_OGL_texture
-        (
+    tex = SOIL_load_OGL_texture (
          "texture/scaled/texture.png",
          SOIL_LOAD_AUTO,
          SOIL_CREATE_NEW_ID
          ,0
         );
 
-    GLint texAttrib = glGetAttribLocation(ProgramObject, "in_tex_coord");
-    glEnableVertexAttribArray(texAttrib);
-    glVertexAttribPointer(texAttrib, 2, GL_FLOAT, GL_FALSE, 5*sizeof(GLfloat), BUFFER_OFFSET(3*sizeof(GLfloat)));
+    // Set up vertex buffer
+    GLuint vBuffer;
+
+    unsigned numVertices = Box::NumVertices * 3;
+    unsigned numFloats = numVertices * Quad::NumComponents;
+    unsigned verticesPerBox = Box::NumVertices * Quad::NumComponents;
+
+    // Create box objects and buffer vertices
+    Box box(Point3d(), dimX, dimY, dimZ, &texDesc);
+    std::vector<GLfloat> vertsVect = box.getVertices();
+
+    GLfloat * vertsArr = new GLfloat[numFloats];
+    std::copy(vertsVect.begin(), vertsVect.end(), vertsArr);
+
+    Box box2(Point3d(5,5,5), dimX, dimY, dimZ, &texDesc);
+    vertsVect = box2.getVertices();
+    std::copy(vertsVect.begin(), vertsVect.end(), vertsArr+verticesPerBox);
+
+    Box box3(Point3d(10,10,10), dimX, dimY, dimZ, &texDesc);
+    vertsVect = box3.getVertices();
+    std::copy(vertsVect.begin(), vertsVect.end(), vertsArr+2*verticesPerBox);
+
+    glGenBuffers(1, &vBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, vBuffer);
+    glBufferData(GL_ARRAY_BUFFER, numFloats*sizeof(GLfloat), vertsArr, GL_STATIC_DRAW);
+
+    delete[] vertsArr;
+
+    // Set up texture coord vertex attribute
+    GLint vTexAttrib = glGetAttribLocation(ProgramObject, "in_tex_coord");
+    glEnableVertexAttribArray(vTexAttrib);
+    glVertexAttribPointer(vTexAttrib, 2, GL_FLOAT, GL_FALSE, 5*sizeof(GLfloat), BUFFER_OFFSET(3*sizeof(GLfloat)));
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    glBindBuffer(GL_ARRAY_BUFFER, vBuffer);
-    glVertexAttribPointer(vPosition, 3, GL_FLOAT, GL_FALSE, 5*sizeof(GLfloat), BUFFER_OFFSET(0));
-    glEnableVertexAttribArray(vPosition);
+    // Set up position coord vertex attribute
+    GLint vPosAttrib = glGetAttribLocation(ProgramObject, "vPosition");
+    glEnableVertexAttribArray(vPosAttrib);
+    glVertexAttribPointer(vPosAttrib, 3, GL_FLOAT, GL_FALSE, 5*sizeof(GLfloat), BUFFER_OFFSET(0));
 
     // Projection matrix
     mat4 proj = perspective(radians(45.0f), 640.f/480.f, 0.1f, 100.f);

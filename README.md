@@ -9,7 +9,7 @@ techniques
 Depends on the following libraries: GLFW, GLEW, glm, and SOIL. Obtain them through your
 package manager, or install them yourself.
 
-Compile with `g++ main.cpp -o main -lglfw -lGLEW -lGL -lSOIL`
+Compile with `g++ box.cpp quad.cpp main.cpp -o main -lglfw -lGLEW -lGL -lSOIL`
 
 ### Windows (VC++)
 The VC++ project is configured to statically link the required libraries. For this to work, the library files must be downloaded and placed in the appropriate locations.
